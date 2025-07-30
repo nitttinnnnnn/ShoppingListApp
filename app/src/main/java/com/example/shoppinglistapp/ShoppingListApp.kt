@@ -13,15 +13,19 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+
 
 data class ShoppingItem(
     val id: Int,
@@ -43,10 +47,37 @@ fun ShoppingListApp() {
     ) {
         Button(
             onClick = { showDialogBox = true },
-            modifier = Modifier.align(Alignment.CenterHorizontally)
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+            colors = ButtonDefaults.buttonColors(Color(0xFFFFA500))
         ) {
-            Text("Add Item")
+            Text("Add Item",
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White)
         }
+
+        // ✅ Pass state to AlertDialogBox
+        AlertDialogBox(
+            showDialogBox = showDialogBox,
+            onDismiss = { showDialogBox = false },
+            itemName = itemName,
+            itemQuantity = itemQuantity,
+            onItemNameChange = { itemName = it },
+            onItemQuantityChange = { itemQuantity = it },
+            onAddItem = {
+                val quantityInt = itemQuantity.toIntOrNull()
+                if (itemName.isNotBlank() && quantityInt != null) {
+                    val newItem = ShoppingItem(
+                        id = (sItems.maxOfOrNull { it.id } ?: 0) + 1,
+                        name = itemName,
+                        quantity = quantityInt
+                    )
+                    sItems = sItems + newItem
+                    showDialogBox = false
+                    itemName = ""
+                    itemQuantity = ""
+                }
+            }
+        )
 
         LazyColumn(
             modifier = Modifier
@@ -58,7 +89,6 @@ fun ShoppingListApp() {
                     ShoppingListEditor(
                         item = item,
                         onEditComplete = { editedName, editedQuantity ->
-                            // ✅ FIXED: Safely update item using copy()
                             sItems = sItems.map {
                                 if (it.id == item.id) it.copy(
                                     name = editedName,
@@ -72,7 +102,6 @@ fun ShoppingListApp() {
                     ShoppingListItem(
                         item = item,
                         onEditClick = {
-                            // ✅ FIXED: Set only the clicked item to edit mode
                             sItems = sItems.map { it.copy(isEdited = it.id == item.id) }
                         },
                         onDeleteClick = { sItems = sItems - item }
@@ -80,63 +109,6 @@ fun ShoppingListApp() {
                 }
             }
         }
-    }
-
-    if (showDialogBox) {
-        AlertDialog(
-            onDismissRequest = { showDialogBox = false },
-            title = { Text("Add Shopping Item") },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value = itemName,
-                        onValueChange = { itemName = it },
-                        singleLine = true,
-                        label = { Text("Item Name") }, // ✅ Improvement
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp)
-                    )
-                    OutlinedTextField(
-                        value = itemQuantity,
-                        onValueChange = { itemQuantity = it },
-                        singleLine = true,
-                        label = { Text("Quantity") }, // ✅ Improvement
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp)
-                    )
-                }
-            },
-            confirmButton = {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Button(onClick = {
-                        val quantityInt = itemQuantity.toIntOrNull() // ✅ FIXED: Safe parse
-                        if (itemName.isNotBlank() && quantityInt != null) {
-                            val newItem = ShoppingItem(
-                                id = (sItems.maxOfOrNull { it.id } ?: 0) + 1, // ✅ FIXED: Safer unique ID generation
-                                name = itemName,
-                                quantity = quantityInt
-                            )
-                            sItems = sItems + newItem
-                            showDialogBox = false
-                            itemName = "" // ✅ FIXED: Clear after add
-                            itemQuantity = "" // ✅ FIXED: Clear after add
-                        }
-                    }) {
-                        Text("Add")
-                    }
-                    Button(onClick = { showDialogBox = false }) {
-                        Text("Cancel")
-                    }
-                }
-            }
-        )
     }
 }
 
@@ -150,7 +122,7 @@ fun ShoppingListItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
-            .border(border = BorderStroke(2.dp, Color.Cyan), RoundedCornerShape(20)),
+            .border(border = BorderStroke(1.dp, Color(0xFFFFA500)), RoundedCornerShape(10)),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
@@ -209,10 +181,89 @@ fun ShoppingListEditor(
                 singleLine = true
             )
         }
-        Button(onClick = {
-            onEditComplete(editedName, editedQuantity.toIntOrNull() ?: 1) // ✅ FIXED: Safe parse
-        }) {
+        Button(
+            onClick = { onEditComplete(editedName, editedQuantity.toIntOrNull() ?: 1) },
+            colors = ButtonDefaults.buttonColors(Color(0xFFFFA500)),
+            modifier = Modifier.align(Alignment.CenterVertically)
+            )
+        {
             Text("Save")
         }
+    }
+}
+
+// REFACTORED: Takes state + callbacks from parent
+@Composable
+fun AlertDialogBox(
+    showDialogBox: Boolean,
+    onDismiss: () -> Unit,
+    itemName: String,
+    itemQuantity: String,
+    onItemNameChange: (String) -> Unit,
+    onItemQuantityChange: (String) -> Unit,
+    onAddItem: () -> Unit
+) {
+    if (showDialogBox) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Add Shopping Item") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = itemName,
+                        onValueChange = onItemNameChange,
+                        singleLine = true,
+                        label = { Text("Item Name") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Gray,
+                            unfocusedBorderColor = Color.DarkGray,
+                            focusedLabelColor = Color.LightGray,
+                            cursorColor = Color.White,
+                            unfocusedLabelColor = Color.Gray
+                        )
+                    )
+                    OutlinedTextField(
+                        value = itemQuantity,
+                        onValueChange = onItemQuantityChange,
+                        singleLine = true,
+                        label = { Text("Quantity") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Gray,
+                            unfocusedBorderColor = Color.DarkGray,
+                            focusedLabelColor = Color.LightGray,
+                            cursorColor = Color.White,
+                            unfocusedLabelColor = Color.Gray
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Button(
+                        onClick = onAddItem,
+                        colors = ButtonDefaults.buttonColors(Color(0xFFFFA500))
+                    ) {
+                        Text("Add")
+                    }
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(Color(0xFFFFA500))
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            }
+        )
     }
 }
